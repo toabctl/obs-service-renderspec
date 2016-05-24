@@ -1,0 +1,37 @@
+<service name="renderspec">
+  <summary>Renders .spec.j2 templates into .spec files</summary>
+  <description>
+    This service renders a given .spec.j2 Jinja2 template into a .spec file.
+    There are different styles available.
+  </description>
+  <parameter name="input-template">
+    <description>
+      Name of the .spec.j2 template file.
+    </description>
+  </parameter>
+  <parameter name="output-name">
+    <description>
+      Name of the rendered .spec file. Default is "input-template" name without
+      the ending .j2 .
+    </description>
+  </parameter>
+  <parameter name="spec-style">
+    <description>
+      Distro style for specs. i.e. "suse" or "fedora".
+    </description>
+  </parameter>
+  <parameter name="epochs">
+    <description>
+      Optional YAML file which contains epochs per package.
+      See renderspec documentation for the epoch file format.
+      This can also be an url to download the file from.
+    </description>
+  </parameter>
+  <parameter name="requirements">
+    <description>
+      Optional PEP0508 compatible requirements file.
+      See renderspec documentation for the requirements file usage.
+      This can also be an url to download the file from.
+    </description>
+  </parameter>
+</service>

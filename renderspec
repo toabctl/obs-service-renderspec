@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+#
+# Copyright 2012 SUSE Linux
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may
+# not use this file except in compliance with the License. You may obtain
+# a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations
+# under the License.
+
+from __future__ import print_function
+
+import argparse
+from contextlib import closing
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import requests
+
+
+def download_file(url, dest):
+    with closing(requests.get(url, stream=True)) as r:
+        with open(dest, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='renderspec source service')
+    parser.add_argument('--outdir',
+                        help='osc service parameter that does nothing')
+    parser.add_argument('--input-template',
+                        help='.spec.j2 template file path')
+    parser.add_argument('--output-name',
+                        help='name of the rendered .spec.j2 file')
+    parser.add_argument('--spec-style', default='suse',
+                        help='Spec style to use. Default is "%(default)s"')
+    parser.add_argument('--epochs', default=None,
+                        help='epochs file path')
+    parser.add_argument('--requirements', default=None,
+                        help='requirements file path')
+    return vars(parser.parse_args())
+
+
+if __name__ == '__main__':
+    args = parse_args()
+
+    if not args['input_template']:
+        sys.exit('input-template must be given and must exist')
+
+    tmpdir = tempfile.mkdtemp(prefix='renderspec_tmp_')
+    try:
+        if args['input_template'].startswith('http'):
+            input_filename = os.path.join(tmpdir, 'input_template')
+            download_file(args['input_template'], input_filename)
+        else:
+            input_filename = args['input_template']
+        if not os.path.exists(input_filename):
+            sys.exit("input file '%s' does not exist" % (input_filename))
+
+        if args['epochs']:
+            if args['epochs'].startswith('http'):
+                epochs_filename = os.path.join(tmpdir, 'epochs')
+                download_file(args['epochs'], epochs_filename)
+            else:
+                epochs_filename = args['epochs']
+            if not os.path.exists(epochs_filename):
+                sys.exit("epochs file '%s' does not exist" % (epochs_filename))
+
+        if args['requirements']:
+            if args['requirements'].startswith('http'):
+                requirements_filename = os.path.join(tmpdir, 'requirements')
+                download_file(args['requirements'], requirements_filename)
+            else:
+                requirements_filename = args['requirements']
+            if not os.path.exists(requirements_filename):
+                sys.exit("requirements file '%s' does not exist" % (
+                    requirements_filename))
+
+        if args['output_name']:
+            outfile = args['output_name']
+        else:
+            outfile = re.sub('\.j2$', '', os.path.basename(input_filename))
+
+        cmd = ['renderspec', '--output', outfile,
+               '--spec-style', args['spec_style']]
+
+        if args['epochs']:
+            cmd += ['--epochs', epochs_filename]
+        if args['requirements']:
+            cmd += ['--requirements', requirements_filename]
+
+        cmd += [input_filename]
+
+        subprocess.check_call(cmd)
+    finally:
+        shutil.rmtree(tmpdir)
