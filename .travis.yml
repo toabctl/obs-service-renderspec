@@ -6,7 +6,7 @@ python:
   - "3.5"
 
 install:
-  - pip install flake8 ddt unittest2 renderspec
+  - pip install flake8 ddt unittest2 renderspec requests
 script:
   - flake8 renderspec tests/
   - python -m unittest discover tests/
