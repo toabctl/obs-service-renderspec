@@ -17,6 +17,7 @@
 from __future__ import print_function
 
 import argparse
+import datetime
 from contextlib import closing
 import os
 import re
@@ -25,6 +26,35 @@ import subprocess
 import sys
 import tempfile
 import requests
+
+
+def add_spec_header_prefix(spec_file):
+    pkg_name = re.sub('\.spec$', '', spec_file)
+
+    with open(spec_file, 'r') as f:
+        old_content = f.read()
+
+    with open(spec_file, 'w') as f:
+        f.write("""#
+# spec file for package %(pkg_name)s
+#
+# Copyright (c) %(year)s SUSE LINUX GmbH, Nuernberg, Germany.
+#
+# All modifications and additions to the file contributed by third parties
+# remain the property of their copyright owners, unless otherwise agreed
+# upon. The license for this file, and modifications and additions to the
+# file, is the same license as for the pristine package itself (unless the
+# license for the pristine package is not an Open Source License, in which
+# case the license is the MIT License). An "Open Source License" is a
+# license that conforms to the Open Source Definition (Version 1.9)
+# published by the Open Source Initiative.
+
+# Please submit bugfixes or comments via http://bugs.opensuse.org/
+#
+
+
+""" % {'pkg_name': pkg_name, 'year': datetime.date.today().year})
+        f.write(old_content)
 
 
 def download_file(url, dest):
@@ -103,5 +133,6 @@ if __name__ == '__main__':
         cmd += [input_filename]
 
         subprocess.check_call(cmd)
+        add_spec_header_prefix(outfile)
     finally:
         shutil.rmtree(tmpdir)
