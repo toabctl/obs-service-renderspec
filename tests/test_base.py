@@ -16,6 +16,7 @@
 
 
 import imp
+import mock
 import os
 import shutil
 import subprocess
@@ -69,7 +70,16 @@ class RenderspecBasics(RenderspecBaseTest):
     def _write_template(self, name):
         """write a template which can be rendered"""
         with open(os.path.join(self._tmpdir, name), 'w+') as f:
-            f.write('{{ py2pkg("oslo.log") }}')
+            f.write("""
+Name: test
+License: Apache-2.0
+Version: 1.1.0
+Release: 0
+Summary: test summary
+Requires: {{ py2pkg("oslo.log") }}
+%description
+test description.
+""")
 
     def test_help(self):
         self._run_renderspec(['-h'])
@@ -77,6 +87,39 @@ class RenderspecBasics(RenderspecBaseTest):
     def test_render(self):
         self._write_template('template.spec.j2')
         self._run_renderspec(['--input-template', 'template.spec.j2'])
+
+    @mock.patch('renderspec._get_changelog_github', return_value=['l1', 'l2'])
+    def test__get_changelog(self, mock_changelog_github):
+        changes = sv._get_changelog('gh,openSUSE,obs-service-renderspec',
+                                    '1.1.0', '2.2.0')
+        self.assertEqual(changes, ['l1', 'l2'])
+
+    def test__get_changelog_invalid_provider(self):
+        with self.assertRaises(Exception):
+            sv._get_changelog('foo,openSUSE,obs-service-renderspec',
+                              '1.1.0', '2.2.0')
+
+    def test__get_changes_string_no_changes(self):
+        s = sv._get_changes_string([], 'foobar@example.com')
+        self.assertEqual(s, None)
+        s = sv._get_changes_string(None, 'foobar@example.com')
+        self.assertEqual(s, None)
+
+    @mock.patch('renderspec._get_changes_datetime',
+                return_value='Mon Oct 17 05:22:25 UTC 2016')
+    def test__get_changes_string(self, mock_utcnow):
+        s = sv._get_changes_string(['l1', ['l2', 'l3'], 'l4'],
+                                   'foobar@example.com')
+        expected = """-------------------------------------------------------------------
+Mon Oct 17 05:22:25 UTC 2016 - foobar@example.com
+
+- l1
+  - l2
+  - l3
+- l4
+
+"""
+        self.assertEqual(s, expected)
 
 
 if __name__ == '__main__':
