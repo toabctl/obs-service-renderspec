@@ -6,7 +6,7 @@ An Open Build Service source service for rendering .spec.j2 templates with
 
 
 ## Requirements
-`python-requests` and `renderspec`.
+`python-requests`, `python-six` and `renderspec`.
 
 ## Testing
 The tests can be called with:

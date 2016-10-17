@@ -18,13 +18,100 @@ from __future__ import print_function
 
 import argparse
 from contextlib import closing
+from datetime import datetime
+import json
 import os
 import re
 import shutil
+import six
 import subprocess
 import sys
 import tempfile
 import requests
+from six.moves import filter
+
+
+RPMSPEC_BIN = "/usr/bin/rpmspec"
+GITHUB_CHANGES = ("https://api.github.com/repos/%(owner)s/%(repo)s/"
+                  "compare/%(v1)s...%(v2)s")
+
+
+def _get_changelog_github(owner, repo, v1, v2):
+    """get a list with changes for the given versions"""
+    url = GITHUB_CHANGES % dict(owner=owner, repo=repo,
+                                v1=v1, v2=v2)
+    try:
+        res = requests.get(url)
+    except Exception as exc:
+        print("Can not get '%s': %s" % (url, str(exc)))
+        sys.exit("Can not get '%s': %s" % (url))
+    if res.status_code != 200:
+        raise Exception("Can not get changes from '%s'" % (url))
+    data = res.json()
+    commits = data.get('commits', [])
+    changes = []
+    for c in commits:
+        msg = c['commit']['message'].splitlines()[0]
+        if not msg.startswith('Merge '):
+            changes += [msg]
+    # remove duplicates
+    return list(set(changes))
+
+
+def _get_changelog(changelog_provider, v_old, v_new):
+    """get changelog for the given versions"""
+    changes = []
+    if changelog_provider:
+        provider, params = changelog_provider.split(',', 1)
+        if provider == 'gh':
+            owner, repo = params.split(',', 2)
+            changes = _get_changelog_github(owner, repo, v_old, v_new)
+        else:
+            raise Exception("Invalid changelog-provider '%s'" % (provider))
+    return changes
+
+
+def _get_changes_datetime():
+    return datetime.utcnow().strftime('%a %b %e %T UTC %Y')
+
+
+def _get_changes_string(changes, email):
+    """get a .changes compatible string"""
+    if not changes:
+        return None
+    # header
+    changes_str = '-' * 67 + '\n'
+    changes_str += '%s - %s\n\n' % (_get_changes_datetime(), email)
+    for c in changes:
+        if isinstance(c, six.string_types):
+            # indent1
+            changes_str += '- %s\n' % (c)
+        else:
+            # expect another list - indent2
+            for cc in c:
+                changes_str += '  - %s\n' % (cc)
+    # footer
+    changes_str += '\n'
+    return changes_str
+
+
+def _prepend_string_to_file(string, filename):
+    """prepend content from string to filename"""
+    with open(filename, 'r') as f:
+        current = f.read()
+    new = string + current
+    with open(filename, 'w') as f:
+        f.write(new)
+
+
+def _get_spec_version(specfile):
+    """get a single version from the given .spec file"""
+    if not os.path.exists(specfile):
+        # maybe this is the initial convertion.
+        return None
+    version = subprocess.check_output(
+        [RPMSPEC_BIN, '-q', '--queryformat', '%{VERSION}\n', specfile])
+    return list(set(filter(None, version.decode("utf-8").split('\n'))))[0]
 
 
 def download_file(url, dest):
@@ -49,6 +136,11 @@ def parse_args():
                         help='epochs file path')
     parser.add_argument('--requirements', default=None,
                         help='requirements file path')
+    parser.add_argument('--changelog-provider', default=None,
+                        help='A provider to generate a changelog. '
+                        'If not set, no changelog will be generated.')
+    parser.add_argument('--changelog-email', default=None,
+                        help='A email address used in the .changes file. ')
     return vars(parser.parse_args())
 
 
@@ -92,16 +184,35 @@ if __name__ == '__main__':
         else:
             outfile = re.sub('\.j2$', '', os.path.basename(input_filename))
 
+        # get the version *before* we run renderspec
+        old_spec_version = _get_spec_version(outfile)
+
         cmd = ['renderspec', '--output', outfile,
                '--spec-style', args['spec_style']]
-
         if args['epochs']:
             cmd += ['--epochs', epochs_filename]
         if args['requirements']:
             cmd += ['--requirements', requirements_filename]
 
         cmd += [input_filename]
-
+        # run renderspec
         subprocess.check_call(cmd)
+
+        # get the version *after* we run renderspec
+        new_spec_version = _get_spec_version(outfile)
+
+        # check for changelog generation
+        changes_file = outfile.replace('.spec', '.changes')
+        if old_spec_version != new_spec_version and \
+           os.path.exists(changes_file):
+            print("Version changed: '%s' -> '%s'"
+                  % (old_spec_version, new_spec_version))
+            changes = ['update to version %s:' % new_spec_version]
+            changes_new_version = _get_changelog(
+                args['changelog_provider'], old_spec_version, new_spec_version)
+            changes.append(changes_new_version)
+            changes_str = _get_changes_string(changes, args['changelog_email'])
+            print("Update %s" % (changes_file))
+            _prepend_string_to_file(changes_str, changes_file)
     finally:
         shutil.rmtree(tmpdir)

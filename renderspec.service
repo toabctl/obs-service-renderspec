@@ -34,4 +34,16 @@
       This can also be an url to download the file from.
     </description>
   </parameter>
+  <parameter name="changelog-provider">
+    <description>
+      A changelog provider with parameters (separated by comma).
+      Currently supported:
+      - github: "gh,owner,repository" (e.g. "gh,openstack,oslo.config")
+    </description>
+  </parameter>
+  <parameter name="changelog-email">
+    <description>
+      A emaila address which will be used in the .changes file.
+    </description>
+  </parameter>
 </service>
