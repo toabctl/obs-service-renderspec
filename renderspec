@@ -15,11 +15,12 @@
 # under the License.
 
 from __future__ import print_function
+from __future__ import unicode_literals
 
 import argparse
 from contextlib import closing
 from datetime import datetime
-import json
+import io
 import os
 import re
 import shutil
@@ -97,10 +98,10 @@ def _get_changes_string(changes, email):
 
 def _prepend_string_to_file(string, filename):
     """prepend content from string to filename"""
-    with open(filename, 'r') as f:
+    with io.open(filename, encoding='utf-8', mode='r') as f:
         current = f.read()
     new = string + current
-    with open(filename, 'w') as f:
+    with io.open(filename, encoding='utf-8', mode='w') as f:
         f.write(new)
 
 
