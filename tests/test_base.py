@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 # Copyright (c) 2015 SUSE Linux GmbH
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import unicode_literals
 
 import imp
 import mock
@@ -120,6 +122,12 @@ Mon Oct 17 05:22:25 UTC 2016 - foobar@example.com
 
 """
         self.assertEqual(s, expected)
+
+    def test__prepend_string_to_file(self):
+        fn = os.path.join(self._tmpdir, 'prepentd_string_test1')
+        with open(fn, 'w') as f:
+            f.write('a line')
+        sv._prepend_string_to_file('你好', fn)
 
 
 if __name__ == '__main__':
