@@ -33,6 +33,7 @@ from six.moves import filter
 
 
 RPMSPEC_BIN = "/usr/bin/rpmspec"
+OSC_BIN = "/usr/bin/osc"
 GITHUB_CHANGES = ("https://api.github.com/repos/%(owner)s/%(repo)s/"
                   "compare/%(v1)s...%(v2)s")
 
@@ -113,6 +114,20 @@ def _get_spec_version(specfile):
     version = subprocess.check_output(
         [RPMSPEC_BIN, '-q', '--queryformat', '%{VERSION}\n', specfile])
     return list(set(filter(None, version.decode("utf-8").split('\n'))))[0]
+
+
+def _obs_remove_old_version_source(old_spec_version):
+    """after the spec was updated and if a new version is available, remove via
+    'osc' the old tarball"""
+    if not os.path.exists(OSC_BIN) or not \
+       os.path.isdir(os.path.join(os.getcwd(), '.osc')):
+        return
+    rm_extensions = ['tar.gz,', 'zip', 'tar.bz2', 'xz']
+    osc_rm = [OSC_BIN, 'rm', '-f', '*-%s.{%s}' % (old_spec_version,
+                                                  ','.join(rm_extensions))]
+    with open(os.devnull, 'w') as devnull:
+        subprocess.call(' '.join(osc_rm), stdout=devnull,
+                        stderr=subprocess.STDOUT, shell=True)
 
 
 def download_file(url, dest):
@@ -215,5 +230,7 @@ if __name__ == '__main__':
             changes_str = _get_changes_string(changes, args['changelog_email'])
             print("Update %s" % (changes_file))
             _prepend_string_to_file(changes_str, changes_file)
+            # remove old tarball from OBS
+            _obs_remove_old_version_source(old_spec_version)
     finally:
         shutil.rmtree(tmpdir)
