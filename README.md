@@ -1,9 +1,9 @@
-# OpenBuildService source service to process .spec.j2 templates with renderspec
+# renderspec (OBS source service) 
 [![Build Status](https://travis-ci.org/openSUSE/obs-service-renderspec.svg?branch=master)](https://travis-ci.org/openSUSE/obs-service-renderspec)
 
-An Open Build Service source service for rendering .spec.j2 templates with 
-[renderspec](https://pypi.python.org/pypi/renderspec)
+This is an [Open Build Service](http://openbuildservice.org/) source service for rendering .spec.j2 templates with [renderspec](https://pypi.python.org/pypi/renderspec).
 
+This is the git repository for [openSUSE:Tools/obs-service-renderspec](https://build.opensuse.org/package/show/openSUSE:Tools/obs-service-renderspec). The authoritative source is https://github.com/openSUSE/obs-service-renderspec
 
 ## Requirements
 `python-requests`, `python-six` and `renderspec`.
