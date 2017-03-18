@@ -116,17 +116,23 @@ def _get_spec_version(specfile):
     return list(set(filter(None, version.decode("utf-8").split('\n'))))[0]
 
 
-def _obs_remove_old_version_source(old_spec_version):
+def _obs_add_remove_version_source(old_spec_version, new_spec_version):
     """after the spec was updated and if a new version is available, remove via
-    'osc' the old tarball"""
+    'osc' the old tarball and add the new tarball"""
     if not os.path.exists(OSC_BIN) or not \
        os.path.isdir(os.path.join(os.getcwd(), '.osc')):
         return
-    rm_extensions = ['tar.gz,', 'zip', 'tar.bz2', 'xz']
+    extensions = ['tar.gz,', 'zip', 'tar.bz2', 'xz']
     osc_rm = [OSC_BIN, 'rm', '-f', '*-%s.{%s}' % (old_spec_version,
-                                                  ','.join(rm_extensions))]
+                                                  ','.join(extensions))]
     with open(os.devnull, 'w') as devnull:
         subprocess.call(' '.join(osc_rm), stdout=devnull,
+                        stderr=subprocess.STDOUT, shell=True)
+
+    osc_add = [OSC_BIN, 'add', '*-%s.{%s}' % (new_spec_version,
+                                              ','.join(extensions))]
+    with open(os.devnull, 'w') as devnull:
+        subprocess.call(' '.join(osc_add), stdout=devnull,
                         stderr=subprocess.STDOUT, shell=True)
 
 
@@ -230,7 +236,7 @@ if __name__ == '__main__':
             changes_str = _get_changes_string(changes, args['changelog_email'])
             print("Update %s" % (changes_file))
             _prepend_string_to_file(changes_str, changes_file)
-            # remove old tarball from OBS
-            _obs_remove_old_version_source(old_spec_version)
+            # remove/add old/new tarball from OBS
+            _obs_add_remove_version_source(old_spec_version, new_spec_version)
     finally:
         shutil.rmtree(tmpdir)
