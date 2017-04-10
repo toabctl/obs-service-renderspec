@@ -36,6 +36,7 @@ RENDERSPEC_EXECUTABLE = os.path.abspath(
 )
 
 
+@mock.patch('sv._download_files_source_service')
 class RenderspecBaseTest(unittest.TestCase):
     """Basic test class. Other tests should use this one"""
 

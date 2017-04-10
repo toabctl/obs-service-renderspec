@@ -30,6 +30,7 @@ import sys
 import tempfile
 import requests
 from six.moves import filter
+import warnings
 
 
 RPMSPEC_BIN = "/usr/bin/rpmspec"
@@ -42,6 +43,7 @@ def _get_changelog_github(owner, repo, v1, v2):
     """get a list with changes for the given versions"""
     url = GITHUB_CHANGES % dict(owner=owner, repo=repo,
                                 v1=v1, v2=v2)
+    print(url)
     try:
         res = requests.get(url)
     except Exception as exc:
@@ -114,6 +116,15 @@ def _get_spec_version(specfile):
     version = subprocess.check_output(
         [RPMSPEC_BIN, '-q', '--queryformat', '%{VERSION}\n', specfile])
     return list(set(filter(None, version.decode("utf-8").split('\n'))))[0]
+
+
+def _download_files_source_service():
+    cmd_download_files = ['/usr/lib/obs/service/download_files',
+                          '--outdir', '.']
+    try:
+        subprocess.check_call(cmd_download_files)
+    except OSError:
+        warnings.warn('Can not call OBS source service "download_files"')
 
 
 def _obs_add_remove_version_source(old_spec_version, new_spec_version):
@@ -209,6 +220,13 @@ if __name__ == '__main__':
         # get the version *before* we run renderspec
         old_spec_version = _get_spec_version(outfile)
 
+        # download files. This is needed in case renderspec uses dynamic
+        # version detection. In that case, we need:
+        # 1) download_files (to download eg. stable-$release.tar.gz)
+        # 2) renderspec (to update the render .spec.j2 to .spec and .changes)
+        # 3) download_files (to download eg. changed Source entries)
+        _download_files_source_service()
+
         cmd = ['renderspec', '--output', outfile,
                '--spec-style', args['spec_style']]
         if args['epochs']:
@@ -219,6 +237,9 @@ if __name__ == '__main__':
         cmd += [input_filename]
         # run renderspec
         subprocess.check_call(cmd)
+
+        # download files (again)
+        _download_files_source_service()
 
         # get the version *after* we run renderspec
         new_spec_version = _get_spec_version(outfile)
